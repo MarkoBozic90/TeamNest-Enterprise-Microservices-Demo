@@ -34,21 +34,21 @@ Možeš ga copy–paste direktno u root projekta.
 
 ## Table of Contents
 
-* [Highlights](#highlights)
-* [Architecture Overview](#architecture-overview)
-* [Quick Start (Docker Compose)](#quick-start-docker-compose)
-* [Demo Scenarios](#demo-scenarios)
-* [Cloud-Native (Kubernetes)](#cloud-native-kubernetes)
-* [Security (Keycloak)](#security-keycloak)
-* [API Standards](#api-standards)
-* [Observability](#observability)
-* [Reliability](#reliability)
-* [Testing & Quality](#testing--quality)
-* [Tooling & Workflow](#tooling--workflow)
-* [Project Layout](#project-layout)
-* [Per-Service READMEs](#per-service-readmes)
-* [Roadmap](#roadmap)
-* [License](#license)
+* ✨ [Highlights](#-highlights)
+* 🏗️ [Architecture Overview](#️-architecture-overview)
+* 🚀 [Quick Start (Docker Compose)](#-quick-start-docker-compose)
+* 🎬 [Demo Scenarios](#-demo-scenarios)
+* ☸️ [Cloud-Native (Kubernetes)](#️-cloud-native-kubernetes)
+* 🔐 [Security (Keycloak)](#-security-keycloak)
+* 📏 [API Standards](#-api-standards)
+* 📊 [Observability](#-observability)
+* 🛡️ [Reliability](#️-reliability)
+* 🧪 [Testing & Quality](#-testing--quality)
+* 🛠️ [Tooling & Workflow](#️-tooling--workflow)
+* 📂 [Project Layout](#-project-layout)
+* 📚 [Per-Service READMEs](#-per-service-readmes)
+* 🗺️ [Roadmap](#️-roadmap)
+* 📄 [License](#-license)
 
 ---
 
