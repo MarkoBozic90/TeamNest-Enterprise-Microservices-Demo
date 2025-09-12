@@ -54,23 +54,11 @@
         <module>shared/dto</module>
         <module>shared/test-utils</module>
 
-        <!-- spring cloud aplikacije -->
-        <module>gateway</module>
-        <module>user-service</module>
-        <module>training-service</module>
-        <module>directory-bff</module>
 
-        <!-- compose-only servers -->
-        <module>config-server</module>
-        <module>discovery-server</module>
-        <module>shared/bom</module>
-        <module>shared/problem</module>
-        <module>shared/dto</module>
-        <module>shared/test-utils</module>
+
     </modules>
 
     <dependencies>
-        <!-- Svuda dostupno, ali ne ulazi u final JAR (provided) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -92,13 +80,7 @@
                 <scope>import</scope>
             </dependency>
 
-            <dependency>
-                <groupId>com.teamnest.shared</groupId>
-                <artifactId>shared-bom</artifactId>
-                <version>${project.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+
 
             <!-- Testcontainers BOM -->
             <dependency>
@@ -202,7 +184,6 @@
                     <version>${maven.checkstyle.version}</version>
                     <configuration>
                         <configLocation>${checkstyle.config.location}</configLocation>
-                        <encoding>${project.build.sourceEncoding}</encoding>
                         <consoleOutput>true</consoleOutput>
                         <failsOnError>true</failsOnError>
                         <linkXRef>false</linkXRef>
