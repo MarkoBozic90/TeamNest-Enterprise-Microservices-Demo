@@ -38,7 +38,7 @@ Možeš ga copy–paste direktno u root projekta.
 * 🏗️ [Architecture Overview](#️-architecture-overview)
 * 🚀 [Quick Start (Docker Compose)](#-quick-start-docker-compose)
 * 🎬 [Demo Scenarios](#-demo-scenarios)
-* ☸️ [Cloud-Native (Kubernetes)](#️-cloud-native-kubernetes)
+* ☸️[Cloud-Native (Kubernetes)](#️-cloud-native-kubernetes)
 * 🔐 [Security (Keycloak)](#-security-keycloak)
 * 📏 [API Standards](#-api-standards)
 * 📊 [Observability](#-observability)
