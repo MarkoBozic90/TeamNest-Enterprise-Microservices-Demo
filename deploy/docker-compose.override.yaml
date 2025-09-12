@@ -17,7 +17,7 @@ services:
     environment:
       TZ: UTC
       POSTGRES_INITDB_ARGS: "--auth=scram-sha-256"
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     networks: [backend]
     volumes:
       - pg_data:/var/lib/postgresql/data
@@ -32,7 +32,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server","--appendonly","yes"]
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     networks: [backend]
     volumes:
       - redis_data:/data
@@ -53,7 +53,7 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
-    ports: ["8081:8080"]
+    ports: ["127.0.0.1:8081:8080"]
     networks: [backend]
     healthcheck:
       test: ["CMD-SHELL","curl -fsS http://localhost:8080/health/ready || exit 1"]
