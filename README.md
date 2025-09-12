@@ -1,8 +1,3 @@
-Savršeno 👌 Evo ti kompletan **premium root `README.md`** sa svim dodacima za **Checkstyle** i **SonarCloud** (badges, workflow reference, quality sekcija).
-Možeš ga copy–paste direktno u root projekta.
-
----
-
 # TeamNest Enterprise Microservices Demo
 
 > ⚡ **Enterprise-grade microservices showcase** — a condensed version of a real multi-club platform in production (17 clubs, \~1000 users).
@@ -34,21 +29,21 @@ Možeš ga copy–paste direktno u root projekta.
 
 ## Table of Contents
 
-* ✨ [Highlights](#-highlights)
-* 🏗️ [Architecture Overview](#️-architecture-overview)
-* 🚀 [Quick Start (Docker Compose)](#-quick-start-docker-compose)
-* 🎬 [Demo Scenarios](#-demo-scenarios)
-* ☸️[Cloud-Native (Kubernetes)](#️-cloud-native-kubernetes)
-* 🔐 [Security (Keycloak)](#-security-keycloak)
-* 📏 [API Standards](#-api-standards)
-* 📊 [Observability](#-observability)
-* 🛡️ [Reliability](#️-reliability)
-* 🧪 [Testing & Quality](#-testing--quality)
-* 🛠️ [Tooling & Workflow](#️-tooling--workflow)
-* 📂 [Project Layout](#-project-layout)
-* 📚 [Per-Service READMEs](#-per-service-readmes)
-* 🗺️ [Roadmap](#️-roadmap)
-* 📄 [License](#-license)
+* [Highlights](#highlights)
+* [Architecture Overview](#architecture-overview)
+* [Quick Start (Docker Compose)](#quick-start-docker-compose)
+* [Demo Scenarios](#demo-scenarios)
+* [Cloud-Native (Kubernetes)](#cloud-native-kubernetes)
+* [Security (Keycloak)](#security-keycloak)
+* [API Standards](#api-standards)
+* [Observability](#observability)
+* [Reliability](#reliability)
+* [Testing & Quality](#testing--quality)
+* 🔐 [Tooling & Workflow](#tooling--workflow)
+* [Project Layout](#project-layout)
+* [Per-Service READMEs](#per-service-readmes)
+* [Roadmap](#roadmap)
+* [License](#license)
 
 ---
 
@@ -308,5 +303,4 @@ Each service has its own README:
 ## License
 
 MIT License — see `LICENSE`.
-
 
