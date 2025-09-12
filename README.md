@@ -29,7 +29,7 @@
 
 ## Table of Contents
 
-* [Highlights](#highlights)
+* ✨ [Highlights](#highlights)
 * [Architecture Overview](#architecture-overview)
 * [Quick Start (Docker Compose)](#quick-start-docker-compose)
 * [Demo Scenarios](#demo-scenarios)
