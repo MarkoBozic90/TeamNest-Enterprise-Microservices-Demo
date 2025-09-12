@@ -1,0 +1,33 @@
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.teamnest</groupId>
+        <artifactId>teamnest-enterprise-demo</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <groupId>com.teamnest.shared</groupId>
+    <artifactId>shared-dto</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>TeamNest Shared DTO</name>
+    <description>Public DTOs and event payloads (plain Java lib).</description>
+
+    <dependencies>
+        <!-- Keep DTOs lean; Jackson annotations/runtime are enough -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- Bean Validation for request/response DTOs (optional) -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>
