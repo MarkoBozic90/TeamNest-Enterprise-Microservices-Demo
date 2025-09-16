@@ -40,6 +40,7 @@ jobs:
       - name: Tool versions (wrapper)
         run: |
           java -version
+          ./mvnw -v
 
       - name: Make mvnw executable
         run: chmod +x mvnw
