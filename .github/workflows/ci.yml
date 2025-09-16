@@ -24,36 +24,48 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
+    # Ako ti je projekt u podfolderu, OTKOMENTARI i postavi ovde:
+    # defaults:
+    #   run:
+    #     working-directory: TeamNest-Enterprise-Microservices-Demo
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
       - name: Show mvnw perms (before)
         run: |
+          pwd
           ls -la .
-          ls -la mvnw || true
-          file mvnw || true
+          if [ ! -f mvnw ]; then
+            echo "mvnw not found in current dir. Searching..."
+            find . -maxdepth 3 -name mvnw -type f
+          fi
 
       - name: Fix mvnw perms (and CRLF just in case)
         run: |
-          # ako je neko commitao CRLF, prekonvertuj (da ne bude /usr/bin/env: 'sh\r')
-          sed -i 's/\r$//' mvnw
-          chmod +x mvnw
-          ls -la mvnw
-            - name: Set up JDK 17
-              uses: actions/setup-java@v4
-              with:
-                distribution: temurin
-                java-version: '17'
-                cache: maven
+          if [ -f mvnw ]; then
+            sed -i 's/\r$//' mvnw
+            chmod +x mvnw
+            ls -la mvnw
+          else
+            echo "::error::mvnw not found at repo root. Set defaults.run.working-directory or adjust path."
+            exit 1
+          fi
 
       - name: Tool versions (wrapper)
         run: |
           java -version
-
-      - name: Make mvnw executable
-        run: chmod +x mvnw
+          ./mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         run: ./mvnw -B -ntp -DskipITs=false verify
@@ -72,7 +84,6 @@ jobs:
         if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
         run: echo "Skipping SonarCloud (no token or fork PR)."
 
-      # Optional: upload reports to help debug failures
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4
