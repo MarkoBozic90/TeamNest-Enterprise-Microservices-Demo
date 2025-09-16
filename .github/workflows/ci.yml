@@ -41,6 +41,9 @@ jobs:
         run: |
           java -version
           mvn -v
+          
+      - name: Make mvnw executable
+        run: chmod +x mvnw
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         run: |
