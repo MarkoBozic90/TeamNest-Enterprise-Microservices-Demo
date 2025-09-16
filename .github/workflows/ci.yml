@@ -24,6 +24,11 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
+    # Ako je projekat u podfolderu, postavi ga ovde:
+    # defaults:
+    #   run:
+    #     working-directory: TeamNest-Enterprise-Microservices-Demo
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,13 +45,14 @@ jobs:
       - name: Tool versions (wrapper)
         run: |
           java -version
-          ./mvnw -v
-
-      - name: Make mvnw executable
-        run: chmod +x mvnw
+          # ukloni CRLF ako je neko commitao iz Windows-a i pokreni wrapper preko sh (ne treba chmod)
+          sed -i 's/\r$//' mvnw || true
+          sh mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
-        run: ./mvnw -B -ntp -DskipITs=false verify
+        run: |
+          sed -i 's/\r$//' mvnw || true
+          sh mvnw -B -ntp -DskipITs=false verify
 
       - name: SonarCloud Analysis (wait for Quality Gate)
         if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
@@ -54,7 +60,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          sed -i 's/\r$//' mvnw || true
+          sh mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
@@ -62,7 +69,6 @@ jobs:
         if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
         run: echo "Skipping SonarCloud (no token or fork PR)."
 
-      # Optional: upload reports to help debug failures
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4
