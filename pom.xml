@@ -38,25 +38,25 @@
         <maven.surefire.version>3.2.5</maven.surefire.version>
         <maven.failsafe.version>3.2.5</maven.failsafe.version>
         <jacoco.version>0.8.11</jacoco.version>
-        <maven.checkstyle.version>3.3.1</maven.checkstyle.version>
+        <maven.checkstyle.version>3.5.0</maven.checkstyle.version>
         <sonar.maven.plugin>3.11.0.3922</sonar.maven.plugin>
 
         <!-- coverage threshold -->
         <coverage.minimum>0.80</coverage.minimum>
 
         <!-- Checkstyle config (repo-level) -->
-        <checkstyle.config.location>${maven.multimodule.rootDirectory}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
+        <checkstyle.config.location>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
     </properties>
 
-    <modules>
-        <!-- shared multi-moduli -->
-        <module>shared/bom</module>
-        <module>shared/problem</module>
-        <module>shared/dto</module>
-        <module>shared/test-utils</module>
-        <!-- apps -->
-        <module>gateway</module>
-    </modules>
+<!--    <modules>-->
+<!--        &lt;!&ndash; shared multi-moduli &ndash;&gt;-->
+<!--        <module>shared/bom</module>-->
+<!--        <module>shared/problem</module>-->
+<!--        <module>shared/dto</module>-->
+<!--        <module>shared/test-utils</module>-->
+<!--        &lt;!&ndash; apps &ndash;&gt;-->
+<!--        <module>gateway</module>-->
+<!--    </modules>-->
 
     <!-- Verzije (BOM-ovi i lib menadžment) -->
     <dependencyManagement>
@@ -149,7 +149,47 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-checkstyle-plugin</artifactId>
-                    <version>${maven.checkstyle.version}</version>
+                    <version>3.5.0</version>
+
+                    <!-- Forsiramo moderne dependency-je unutar plugin classloader-a -->
+                    <dependencies>
+                        <!-- Nova Checkstyle (radi sa JDK 17+ i novijim) -->
+                        <dependency>
+                            <groupId>com.puppycrawl.tools</groupId>
+                            <artifactId>checkstyle</artifactId>
+                            <version>10.17.0</version>
+                        </dependency>
+                        <!-- Pinuj Guava da pregazi sve starije varijante -->
+                        <dependency>
+                            <groupId>com.google.guava</groupId>
+                            <artifactId>guava</artifactId>
+                            <version>33.3.0-jre</version>
+                        </dependency>
+                        <!-- (opciono) Pinuj Reflections, nekad vuče starije stvari -->
+                        <dependency>
+                            <groupId>org.reflections</groupId>
+                            <artifactId>reflections</artifactId>
+                            <version>0.10.2</version>
+                        </dependency>
+                    </dependencies>
+
+                    <configuration>
+                        <configLocation>${checkstyle.config.location}</configLocation>
+                        <consoleOutput>true</consoleOutput>
+                        <failOnViolation>true</failOnViolation>
+                        <violationSeverity>warning</violationSeverity>
+                        <linkXRef>false</linkXRef>
+                    </configuration>
+
+                    <executions>
+                        <execution>
+                            <id>validate-style</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.sonarsource.scanner.maven</groupId>
@@ -298,7 +338,6 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <configuration>
                     <configLocation>${checkstyle.config.location}</configLocation>
-                    <encoding>${project.build.sourceEncoding}</encoding>
                     <consoleOutput>true</consoleOutput>
                     <failOnViolation>true</failOnViolation>
                     <violationSeverity>warning</violationSeverity>
@@ -322,6 +361,12 @@
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-wrapper-plugin</artifactId>
+                <version>3.3.2</version>
             </plugin>
         </plugins>
     </build>

@@ -37,28 +37,37 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Tool versions
+      - name: Tool versions (wrapper)
         run: |
           java -version
-          mvn -v
-          
+
       - name: Make mvnw executable
         run: chmod +x mvnw
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
-        run: |
-          ./mvnw -B -ntp -DskipITs=false verify
+        run: ./mvnw -B -ntp -DskipITs=false verify
 
       - name: SonarCloud Analysis (wait for Quality Gate)
-        if: ${{ env.SONAR_TOKEN != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ./mvnw -B -ntp \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
-      - name: Skipped Sonar (no token)
-        if: ${{ env.SONAR_TOKEN == '' }}
-        run: echo "SONAR_TOKEN nije setovan - preskačem SonarCloud analizu za ovaj run."
+      - name: Skipped Sonar (no token or fork PR)
+        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
+        run: echo "Skipping SonarCloud (no token or fork PR)."
+
+      # Optional: upload reports to help debug failures
+      - name: Upload test & checkstyle reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+            **/target/checkstyle-result.xml
