@@ -14,14 +14,14 @@
 </p>
 
 <p align="center">
-  <a href="https://sonarcloud.io/dashboard?id=your_project_key">
-    <img alt="Quality Gate" src="https://sonarcloud.io/api/project_badges/measure?project=your_project_key&metric=alert_status">
+  <a href="https://sonarcloud.io/dashboard?id=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo">
+    <img alt="Quality Gate" src="https://sonarcloud.io/api/project_badges/measure?project=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo&metric=alert_status">
   </a>
-  <a href="https://sonarcloud.io/dashboard?id=your_project_key">
-    <img alt="Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=your_project_key&metric=coverage">
+  <a href="https://sonarcloud.io/dashboard?id=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo">
+    <img alt="Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo&metric=coverage">
   </a>
-  <a href="https://sonarcloud.io/dashboard?id=your_project_key">
-    <img alt="Maintainability" src="https://sonarcloud.io/api/project_badges/measure?project=your_project_key&metric=sqale_rating">
+  <a href="https://sonarcloud.io/dashboard?id=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo">
+    <img alt="Maintainability" src="https://sonarcloud.io/api/project_badges/measure?project=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo&metric=sqale_rating">
   </a>
 </p>
 

@@ -1,0 +1,100 @@
+{
+  "realm": "teamnest-demo",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "internationalizationEnabled": true,
+  "defaultLocale": "en",
+  "supportedLocales": ["en", "sr"],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@teamnest.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Admin123!", "temporary": false }],
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "coach",
+      "email": "coach@teamnest.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Coach123!", "temporary": false }],
+      "realmRoles": ["COACH"]
+    },
+    {
+      "username": "player",
+      "email": "player@teamnest.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Player123!", "temporary": false }],
+      "realmRoles": ["PLAYER"]
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "ADMIN" },
+      { "name": "COACH" },
+      { "name": "PLAYER" },
+      { "name": "PARENT" },
+      { "name": "STAFF" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "teamnest-gateway",
+      "name": "TeamNest Gateway (server)",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "gateway-secret-demo",
+      "attributes": {
+        "oauth2.device.authorization.grant.enabled": "false",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "true"
+      },
+      "defaultClientScopes": ["profile", "email", "roles"],
+      "optionalClientScopes": ["microprofile-jwt"]
+    },
+    {
+      "clientId": "teamnest-frontend",
+      "name": "TeamNest Frontend (public)",
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*", "http://localhost:8080/*"],
+      "webOrigins": ["+"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["profile", "email", "roles"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "roles",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "user.attribute": "foo",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ]
+}
