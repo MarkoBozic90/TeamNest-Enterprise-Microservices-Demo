@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="gateway" target="17" />
+      <module name="shared-bom" target="1.5" />
+      <module name="shared-dto" target="17" />
+      <module name="shared-problem" target="17" />
+      <module name="shared-test-utils" target="17" />
+      <module name="teamnest-enterprise-demo" target="1.5" />
+    </bytecodeTargetLevel>
+  </component>
+</project>
