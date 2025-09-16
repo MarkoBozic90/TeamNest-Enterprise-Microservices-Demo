@@ -1,39 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test-sonar:
     name: Build • Test • Checkstyle • Coverage • Sonar (QG)
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '17', '21' ]
+
     env:
       MAVEN_OPTS: -Xmx2g
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # SONAR_TOKEN must be defined in repo/org secrets if you want Sonar
       CI: true
 
     steps:
       - name: Checkout
+      # fetch-depth 0 je bitno za Sonar (history, blame)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ matrix.java }}
           cache: maven
 
-      # 🔧 Uvek sredi line endings i exec bit
+      # Cache za Sonar da ubrza skeniranja
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # 🔧 Uvek normalizuj mvnw (LF + exec bit) i dodaj dijagnostiku
       - name: Prepare Maven Wrapper
         shell: bash
         run: |
           set -euo pipefail
-          test -f mvnw || { echo "::error::mvnw not found at repo root"; exit 1; }
-          # normalize to LF
+          test -f mvnw || { echo "::error::mvnw not found at repo root"; ls -la; exit 1; }
           sed -i 's/\r$//' mvnw
-          # ensure exec bit (iako ćemo ga zvati kroz bash)
           chmod +x mvnw
-          # sanity check: prva linija treba da postoji
-          head -n 1 mvnw
+          echo "== mvnw diagnostics =="
+          head -n 1 mvnw || true
+          file mvnw || true
+          ls -la mvnw || true
+          git ls-files -s mvnw || true
 
       - name: Tool versions (wrapper)
         shell: bash
@@ -41,11 +72,13 @@ jobs:
           java -version
           bash mvnw -v
 
+      # ⚙️ Build + test + checkstyle + integration tests + coverage
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         shell: bash
         run: |
           bash mvnw -B -ntp -DskipITs=false verify
 
+      # 🔍 SonarCloud analiza (samo kad ima token i nije fork PR)
       - name: SonarCloud Analysis (wait for Quality Gate)
         if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
@@ -59,14 +92,27 @@ jobs:
 
       - name: Skipped Sonar (no token or fork PR)
         if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
-        run: echo "Skipping SonarCloud (no token or fork PR)."
+        run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
 
+      # 📦 Uvek podigni izveštaje (i u slučaju fail-a)
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports
+          name: reports-java-${{ matrix.java }}
           path: |
             **/target/surefire-reports/**
             **/target/failsafe-reports/**
             **/target/checkstyle-result.xml
+            **/target/site/jacoco/**
+
+      # (opciono) Zakači surove Maven logove za lakši debug
+      - name: Upload Maven logs (optional)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-logs-java-${{ matrix.java }}
+          path: |
+            **/mvnw.*
+            **/pom.xml
+            **/target/*.log
