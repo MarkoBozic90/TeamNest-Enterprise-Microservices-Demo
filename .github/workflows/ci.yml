@@ -37,25 +37,28 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Debug mvnw presence & perms
+      # Fix CRLF i dodeli exec bit (robustno)
+      - name: Prepare Maven Wrapper
         shell: bash
         run: |
           set -euo pipefail
-          echo "PWD: $(pwd)"
-          ls -la || true
-          [ -f mvnw ] || { echo "::error::mvnw not found in repo root"; exit 1; }
-          sed -i 's/\r$//' mvnw || true    # skini CRLF ako postoji
-          ls -la mvnw
-          head -n1 mvnw || true
+          [ -f ./mvnw ] || { echo "::error::mvnw not found in repo root"; exit 1; }
+          # skini CRLF ako je neko commitao iz Windowsa
+          sed -i 's/\r$//' mvnw
+          # dodeli exec bit (ako nije setovan u git indexu)
+          chmod +x mvnw
+          # (opciono) pokaži prve linije wrappera
+          head -n 1 mvnw
 
       - name: Tool versions (wrapper via sh)
+        shell: bash
         run: |
           java -version
           sh mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
+        shell: bash
         run: |
-          # koristi wrapper preko sh (ne treba chmod)
           sh mvnw -B -ntp -DskipITs=false verify
 
       - name: SonarCloud Analysis (wait for Quality Gate)
