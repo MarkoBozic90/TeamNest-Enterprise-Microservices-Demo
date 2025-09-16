@@ -1,18 +1,3 @@
-name: CI
-
-on:
-  pull_request:
-  push:
-    branches: [ main, master ]
-
-permissions:
-  contents: read
-  pull-requests: write
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-test-sonar:
     name: Build • Test • Checkstyle • Coverage • Sonar (QG)
@@ -37,25 +22,38 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Tool versions (wrapper via sh)
+      # 🔧 Uvek sredi line endings i exec bit
+      - name: Prepare Maven Wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f mvnw || { echo "::error::mvnw not found at repo root"; exit 1; }
+          # normalize to LF
+          sed -i 's/\r$//' mvnw
+          # ensure exec bit (iako ćemo ga zvati kroz bash)
+          chmod +x mvnw
+          # sanity check: prva linija treba da postoji
+          head -n 1 mvnw
+
+      - name: Tool versions (wrapper)
+        shell: bash
         run: |
           java -version
-          sed -i 's/\r$//' mvnw || true
-          sh ./mvnw -v
+          bash mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
+        shell: bash
         run: |
-          sed -i 's/\r$//' mvnw || true
-          sh ./mvnw -B -ntp -DskipITs=false verify
+          bash mvnw -B -ntp -DskipITs=false verify
 
       - name: SonarCloud Analysis (wait for Quality Gate)
         if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: bash
         run: |
-          sed -i 's/\r$//' mvnw || true
-          sh ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          bash mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
@@ -64,4 +62,11 @@ jobs:
         run: echo "Skipping SonarCloud (no token or fork PR)."
 
       - name: Upload test & checkstyle reports
-        if: always
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+            **/target/checkstyle-result.xml
