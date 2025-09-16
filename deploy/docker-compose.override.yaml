@@ -1,0 +1,62 @@
+version: "3"
+name: teamnest-enterprise-demo
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: UTC
+      POSTGRES_INITDB_ARGS: "--auth=scram-sha-256"
+    ports: ["127.0.0.1:5432:5432"]
+    networks: [backend]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server","--appendonly","yes"]
+    ports: ["127.0.0.1:6379:6379"]
+    networks: [backend]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    restart: unless-stopped
+    command: ["start-dev","--import-realm"]
+    environment:
+      TZ: UTC
+      KC_DB: dev-mem
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    ports: ["127.0.0.1:8081:8080"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL","curl -fsS http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
