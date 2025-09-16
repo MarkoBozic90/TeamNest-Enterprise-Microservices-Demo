@@ -39,12 +39,15 @@ jobs:
 
       - name: Tool versions (wrapper via sh)
         run: |
+          set -euo pipefail
           java -version
+          # ukloni CRLF ako je commitovano sa Windows-a
           sed -i 's/\r$//' mvnw || true
           sh mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         run: |
+          set -euo pipefail
           sed -i 's/\r$//' mvnw || true
           sh mvnw -B -ntp -DskipITs=false verify
 
@@ -54,6 +57,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
+          set -euo pipefail
           sed -i 's/\r$//' mvnw || true
           sh mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
