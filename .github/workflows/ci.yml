@@ -24,16 +24,11 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
-    # Ako je projekat u podfolderu, otkomentariši i postavi relativnu putanju:
-    # defaults:
-    #   run:
-    #     working-directory: path/do/projekta
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # potrebno za Sonar PR dekoraciju i blame
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -42,51 +37,26 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Detect Maven wrapper path
-        id: detect
-        shell: bash
+      - name: Tool versions (wrapper via sh)
         run: |
-          set -euo pipefail
-          echo "PWD: $(pwd)"
-          # nađi mvnw u root-u ili do 4 nivoa ispod
-          if [ -f mvnw ]; then WRAPPER="mvnw"; else
-            WRAPPER="$(find . -maxdepth 4 -type f -name mvnw | head -n1 || true)"
-          fi
-          if [ -z "${WRAPPER:-}" ]; then
-            echo "::error::mvnw not found (repo root or subdirs up to 4 levels)."
-            find . -maxdepth 6 -name mvnw -type f || true
-            exit 1
-          fi
-          echo "Found wrapper at: $WRAPPER"
-          echo "WRAPPER=$WRAPPER" >> "$GITHUB_ENV"
-          # ukloni CRLF ako je commitovano iz Windows-a
-          sed -i 's/\r$//' "$WRAPPER" || true
-          ls -la "$WRAPPER" || true
-          head -n1 "$WRAPPER" || true
-
-      - name: Tool versions (wrapper)
-        shell: bash
-        run: |
-          set -euo pipefail
           java -version
-          sh "$WRAPPER" -v
+          sed -i 's/\r$//' mvnw || true
+          sh mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
-        shell: bash
         run: |
-          set -euo pipefail
-          sh "$WRAPPER" -B -ntp -DskipITs=false verify
+          sed -i 's/\r$//' mvnw || true
+          sh mvnw -B -ntp -DskipITs=false verify
 
       - name: SonarCloud Analysis (wait for Quality Gate)
         if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        shell: bash
         run: |
-          set -euo pipefail
-          sh "$WRAPPER" -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.host.url="${SONAR_HOST_URL}" \
+          sed -i 's/\r$//' mvnw || true
+          sh mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
