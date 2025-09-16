@@ -37,18 +37,25 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Tool versions (wrapper via sh)
+      - name: Debug mvnw presence & perms
+        shell: bash
         run: |
           set -euo pipefail
+          echo "PWD: $(pwd)"
+          ls -la || true
+          [ -f mvnw ] || { echo "::error::mvnw not found in repo root"; exit 1; }
+          sed -i 's/\r$//' mvnw || true    # skini CRLF ako postoji
+          ls -la mvnw
+          head -n1 mvnw || true
+
+      - name: Tool versions (wrapper via sh)
+        run: |
           java -version
-          # ukloni CRLF ako je commitovano sa Windows-a
-          sed -i 's/\r$//' mvnw || true
           sh mvnw -v
 
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         run: |
-          set -euo pipefail
-          sed -i 's/\r$//' mvnw || true
+          # koristi wrapper preko sh (ne treba chmod)
           sh mvnw -B -ntp -DskipITs=false verify
 
       - name: SonarCloud Analysis (wait for Quality Gate)
@@ -57,8 +64,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          set -euo pipefail
-          sed -i 's/\r$//' mvnw || true
           sh mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
