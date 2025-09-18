@@ -27,14 +27,14 @@ jobs:
       MAVEN_OPTS: -Xmx2g
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # iznesen secret u env radi if: izraza
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # bitno za Sonar (history/blame)
+          fetch-depth: 0
 
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
@@ -50,30 +50,28 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      # --- Wrapper autodiscovery & diagnostics --------------------------------
-
       - name: Debug wrapper layout
         shell: bash
         run: |
           set -e
           echo "PWD=$(pwd)"
           ls -la || true
-          ls -la .mvn || true
-          ls -la .mvn/wrapper || true
-          echo "Searching for wrapper files (4 levels deep)..."
-          find . -maxdepth 4 -type f \( -name maven-wrapper.properties -o -name maven-wrapper.jar -o -name mvnw -o -name mvnw.cmd \) -print || true
+          find . -maxdepth 6 -type f \( -name maven-wrapper.properties -o -name maven-wrapper.jar -o -name mvnw -o -name mvnw.cmd \) -print || true
 
       - name: Locate Maven Wrapper dir
         id: wr
         shell: bash
         run: |
           set -euo pipefail
-          WR_PROP="$(find . -maxdepth 4 -type f -name maven-wrapper.properties | head -n1 || true)"
+          WR_PROP="$(find . -maxdepth 6 -type f -name maven-wrapper.properties | head -n1 || true)"
           if [ -z "$WR_PROP" ]; then
             echo "::error::maven-wrapper.properties not found anywhere (root or submodules)"; exit 1
           fi
-          WR_DIR="$(cd "$(dirname "$WR_PROP")/.." && pwd)"
+          WR_DIR="$(cd "$(dirname "$WR_PROP")/../.." && pwd)"
           echo "Wrapper dir: $WR_DIR"
+          if [ ! -f "$WR_DIR/mvnw" ]; then
+            echo "::error::mvnw not found next to $WR_DIR/.mvn (expected $WR_DIR/mvnw)"; exit 1
+          fi
           echo "dir=$WR_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Maven Wrapper (normalize LF + exec)
@@ -96,8 +94,6 @@ jobs:
           cd "${{ steps.wr.outputs.dir }}"
           test -f .mvn/wrapper/maven-wrapper.properties || { echo "::error::.mvn/wrapper/maven-wrapper.properties missing in $PWD"; exit 1; }
           test -f .mvn/wrapper/maven-wrapper.jar || { echo "::error::.mvn/wrapper/maven-wrapper.jar missing in $PWD"; exit 1; }
-
-      # --- Build & analysis ----------------------------------------------------
 
       - name: Tool versions (wrapper)
         shell: bash
@@ -130,8 +126,6 @@ jobs:
       - name: Skipped Sonar (no token or fork PR)
         if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
         run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
-
-      # --- Artifacts -----------------------------------------------------------
 
       - name: Upload test & checkstyle reports
         if: always()
