@@ -54,8 +54,7 @@ jobs:
         shell: bash
         run: |
           java -version
-          sh mvnw -v
-
+          bash ./mvnw -v
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         shell: bash
         run: |
