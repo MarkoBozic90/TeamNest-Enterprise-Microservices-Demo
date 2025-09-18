@@ -28,7 +28,7 @@ jobs:
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   
-      
+
       CI: true
 
     steps:
