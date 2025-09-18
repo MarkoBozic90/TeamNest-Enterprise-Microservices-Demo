@@ -27,14 +27,14 @@ jobs:
       MAVEN_OPTS: -Xmx2g
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # bitno za Sonar (history, blame)
+          fetch-depth: 0
 
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
@@ -50,55 +50,83 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      # 🔧 Normalizuj mvnw (LF + exec) – ostaje iako exec bit treba da je u gitu
-      - name: Prepare Maven Wrapper
+      - name: Debug wrapper layout
+        shell: bash
+        run: |
+          set -e
+          echo "PWD=$(pwd)"
+          ls -la || true
+          find . -maxdepth 6 -type f \( -name maven-wrapper.properties -o -name maven-wrapper.jar -o -name mvnw -o -name mvnw.cmd \) -print || true
+
+      - name: Locate Maven Wrapper dir
+        id: wr
         shell: bash
         run: |
           set -euo pipefail
-          test -f mvnw || { echo "::error::mvnw not found at repo root"; ls -la; exit 1; }
-          sed -i 's/\r$//' mvnw
+          WR_PROP="$(find . -maxdepth 6 -type f -name maven-wrapper.properties | head -n1 || true)"
+          if [ -z "$WR_PROP" ]; then
+            echo "::error::maven-wrapper.properties not found anywhere (root or submodules)"; exit 1
+          fi
+          WR_DIR="$(cd "$(dirname "$WR_PROP")/../.." && pwd)"
+          echo "Wrapper dir: $WR_DIR"
+          if [ ! -f "$WR_DIR/mvnw" ]; then
+            echo "::error::mvnw not found next to $WR_DIR/.mvn (expected $WR_DIR/mvnw)"; exit 1
+          fi
+          echo "dir=$WR_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Maven Wrapper (normalize LF + exec)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.wr.outputs.dir }}"
+          test -f mvnw || { echo "::error::mvnw not found in $PWD"; ls -la; exit 1; }
+          sed -i 's/\r$//' mvnw || true
           chmod +x mvnw
+          echo "== mvnw diagnostics =="
           head -n 1 mvnw || true
           ls -la mvnw || true
           git ls-files -s mvnw || true
 
-      # ✅ Obavezna provera da postoje wrapper fajlovi (properties + jar)
       - name: Validate Maven Wrapper files
         shell: bash
         run: |
           set -euo pipefail
-          test -f .mvn/wrapper/maven-wrapper.properties || { echo "::error::.mvn/wrapper/maven-wrapper.properties missing"; exit 1; }
-          test -f .mvn/wrapper/maven-wrapper.jar || { echo "::error::.mvn/wrapper/maven-wrapper.jar missing"; exit 1; }
+          cd "${{ steps.wr.outputs.dir }}"
+          test -f .mvn/wrapper/maven-wrapper.properties || { echo "::error::.mvn/wrapper/maven-wrapper.properties missing in $PWD"; exit 1; }
+          test -f .mvn/wrapper/maven-wrapper.jar || { echo "::error::.mvn/wrapper/maven-wrapper.jar missing in $PWD"; exit 1; }
 
       - name: Tool versions (wrapper)
         shell: bash
         run: |
+          set -euo pipefail
+          cd "${{ steps.wr.outputs.dir }}"
           java -version
           bash ./mvnw -v
 
-      # ⚙️ Build + test + checkstyle + IT + coverage
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         shell: bash
         run: |
+          set -euo pipefail
+          cd "${{ steps.wr.outputs.dir }}"
           bash ./mvnw -B -ntp -DskipITs=false verify
 
-      # 🔍 SonarCloud (samo ako postoji secret i nije fork PR)
       - name: SonarCloud Analysis (wait for Quality Gate)
-        if: ${{ secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         shell: bash
         run: |
+          set -euo pipefail
+          cd "${{ steps.wr.outputs.dir }}"
           bash ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
-        if: ${{ !(secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
+        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
         run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
 
-      # 📦 Uvek uploduj izvestaje (i kad build padne)
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4

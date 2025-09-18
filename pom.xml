@@ -48,15 +48,15 @@
         <checkstyle.config.location>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
     </properties>
 
-<!--    <modules>-->
-<!--        &lt;!&ndash; shared multi-moduli &ndash;&gt;-->
-<!--        <module>shared/bom</module>-->
-<!--        <module>shared/problem</module>-->
-<!--        <module>shared/dto</module>-->
-<!--        <module>shared/test-utils</module>-->
-<!--        &lt;!&ndash; apps &ndash;&gt;-->
-<!--        <module>gateway</module>-->
-<!--    </modules>-->
+    <modules>
+        <!-- shared multi-moduli -->
+        <module>shared/bom</module>
+        <module>shared/problem</module>
+        <module>shared/dto</module>
+        <module>shared/test-utils</module>
+        <!-- apps -->
+        <module>gateway</module>
+    </modules>
 
     <!-- Verzije (BOM-ovi i lib menadžment) -->
     <dependencyManagement>
