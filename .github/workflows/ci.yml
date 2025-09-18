@@ -74,6 +74,7 @@ jobs:
         run: |
           java -version
           bash ./mvnw -v
+          
 
       # ⚙️ Build + test + checkstyle + IT + coverage
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
