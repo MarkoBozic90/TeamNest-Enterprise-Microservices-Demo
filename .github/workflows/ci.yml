@@ -1,9 +1,9 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [ main, master ]
-  pull_request:
 
 permissions:
   contents: read
@@ -17,101 +17,70 @@ jobs:
   build-test-sonar:
     name: Build • Test • Checkstyle • Coverage • Sonar (QG)
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        java: [ '17', '21' ]
-
     env:
       MAVEN_OPTS: -Xmx2g
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
     steps:
       - name: Checkout
-        # fetch-depth 0 bitno za Sonar (history, blame)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up JDK ${{ matrix.java }}
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.java }}
+          java-version: '17'
           cache: maven
 
-      # Cache za Sonar da ubrza skeniranja
-      - name: Cache SonarCloud packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      # 🔧 Uvek normalizuj mvnw (LF + exec bit) i dodaj dijagnostiku
+      # Fix CRLF i dodeli exec bit (robustno)
       - name: Prepare Maven Wrapper
         shell: bash
         run: |
           set -euo pipefail
-          test -f mvnw || { echo "::error::mvnw not found at repo root"; ls -la; exit 1; }
+          [ -f ./mvnw ] || { echo "::error::mvnw not found in repo root"; exit 1; }
+          # skini CRLF ako je neko commitao iz Windowsa
           sed -i 's/\r$//' mvnw
+          # dodeli exec bit (ako nije setovan u git indexu)
           chmod +x mvnw
-          echo "== mvnw diagnostics =="
-          head -n 1 mvnw || true
-          file mvnw || true
-          ls -la mvnw || true
-          git ls-files -s mvnw || true
+          # (opciono) pokaži prve linije wrappera
+          head -n 1 mvnw
 
-      - name: Tool versions (wrapper)
+      - name: Tool versions (wrapper via sh)
         shell: bash
         run: |
           java -version
-          bash mvnw -v
+          sh mvnw -v
 
-      # ⚙️ Build + test + checkstyle + integration tests + coverage
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         shell: bash
         run: |
-          bash mvnw -B -ntp -DskipITs=false verify
+          sh mvnw -B -ntp -DskipITs=false verify
 
-      # 🔍 SonarCloud analiza (samo kad secret postoji i nije fork PR)
       - name: SonarCloud Analysis (wait for Quality Gate)
-        if: ${{ secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        shell: bash
         run: |
-          bash mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          sh mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
-        if: ${{ !(secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
-        run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
+        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
+        run: echo "Skipping SonarCloud (no token or fork PR)."
 
-      # 📦 Uvek podigni izveštaje (i u slučaju fail-a)
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports-java-${{ matrix.java }}
+          name: reports
           path: |
             **/target/surefire-reports/**
             **/target/failsafe-reports/**
             **/target/checkstyle-result.xml
-            **/target/site/jacoco/**
-
-      # (opciono) Zakači surove Maven logove za lakši debug
-      - name: Upload Maven logs (optional)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: maven-logs-java-${{ matrix.java }}
-          path: |
-            **/mvnw.*
-            **/pom.xml
-            **/target/*.log
