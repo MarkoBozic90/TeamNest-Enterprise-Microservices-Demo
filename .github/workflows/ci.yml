@@ -27,8 +27,7 @@ jobs:
       MAVEN_OPTS: -Xmx2g
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   
-
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # ← iznesen secret u env
       CI: true
 
     steps:
@@ -51,7 +50,7 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      # 🔧 Normalizuj mvnw (LF + exec) – ostaje iako exec bit treba da je u gitu
+      # Normalizuj mvnw (LF + exec) i dijagnostika
       - name: Prepare Maven Wrapper
         shell: bash
         run: |
@@ -59,11 +58,12 @@ jobs:
           test -f mvnw || { echo "::error::mvnw not found at repo root"; ls -la; exit 1; }
           sed -i 's/\r$//' mvnw
           chmod +x mvnw
+          echo "== mvnw diagnostics =="
           head -n 1 mvnw || true
           ls -la mvnw || true
           git ls-files -s mvnw || true
 
-      # ✅ Obavezna provera da postoje wrapper fajlovi (properties + jar)
+      # Guard: moraju postojati wrapper properties + jar
       - name: Validate Maven Wrapper files
         shell: bash
         run: |
@@ -76,20 +76,19 @@ jobs:
         run: |
           java -version
           bash ./mvnw -v
-          
 
-      # ⚙️ Build + test + checkstyle + IT + coverage
+      # Build + test + checkstyle + IT + coverage
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         shell: bash
         run: |
           bash ./mvnw -B -ntp -DskipITs=false verify
 
-      # 🔍 SonarCloud (samo ako postoji secret i nije fork PR)
+      # SonarCloud (samo ako postoji token i nije fork PR)
       - name: SonarCloud Analysis (wait for Quality Gate)
-        if: ${{ secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         shell: bash
         run: |
           bash ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
@@ -97,10 +96,10 @@ jobs:
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
-        if: ${{ !(secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
+        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
         run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
 
-      # 📦 Uvek uploduj izvestaje (i kad build padne)
+      # Artefakti (i kad build padne)
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4
