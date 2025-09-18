@@ -1,9 +1,9 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [ main, master ]
+  pull_request:
 
 permissions:
   contents: read
@@ -17,70 +17,94 @@ jobs:
   build-test-sonar:
     name: Build • Test • Checkstyle • Coverage • Sonar (QG)
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '17', '21' ]
+
     env:
       MAVEN_OPTS: -Xmx2g
       JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
       SONAR_HOST_URL: https://sonarcloud.io
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CI: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # bitno za Sonar (history, blame)
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ matrix.java }}
           cache: maven
 
-      # Fix CRLF i dodeli exec bit (robustno)
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # 🔧 Normalizuj mvnw (LF + exec) – ostaje iako exec bit treba da je u gitu
       - name: Prepare Maven Wrapper
         shell: bash
         run: |
           set -euo pipefail
-          [ -f ./mvnw ] || { echo "::error::mvnw not found in repo root"; exit 1; }
-          # skini CRLF ako je neko commitao iz Windowsa
+          test -f mvnw || { echo "::error::mvnw not found at repo root"; ls -la; exit 1; }
           sed -i 's/\r$//' mvnw
-          # dodeli exec bit (ako nije setovan u git indexu)
           chmod +x mvnw
-          # (opciono) pokaži prve linije wrappera
-          head -n 1 mvnw
+          head -n 1 mvnw || true
+          ls -la mvnw || true
+          git ls-files -s mvnw || true
 
-      - name: Tool versions (wrapper via sh)
+      # ✅ Obavezna provera da postoje wrapper fajlovi (properties + jar)
+      - name: Validate Maven Wrapper files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .mvn/wrapper/maven-wrapper.properties || { echo "::error::.mvn/wrapper/maven-wrapper.properties missing"; exit 1; }
+          test -f .mvn/wrapper/maven-wrapper.jar || { echo "::error::.mvn/wrapper/maven-wrapper.jar missing"; exit 1; }
+
+      - name: Tool versions (wrapper)
         shell: bash
         run: |
           java -version
-          sh mvnw -v
+          bash ./mvnw -v
 
+      # ⚙️ Build + test + checkstyle + IT + coverage
       - name: Maven Verify (Checkstyle + Tests + IT + Coverage)
         shell: bash
         run: |
-          sh mvnw -B -ntp -DskipITs=false verify
+          bash ./mvnw -B -ntp -DskipITs=false verify
 
+      # 🔍 SonarCloud (samo ako postoji secret i nije fork PR)
       - name: SonarCloud Analysis (wait for Quality Gate)
-        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        if: ${{ secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: bash
         run: |
-          sh mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          bash ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
-        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
-        run: echo "Skipping SonarCloud (no token or fork PR)."
+        if: ${{ !(secrets.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
+        run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
 
+      # 📦 Uvek uploduj izvestaje (i kad build padne)
       - name: Upload test & checkstyle reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports
+          name: reports-java-${{ matrix.java }}
           path: |
             **/target/surefire-reports/**
             **/target/failsafe-reports/**
             **/target/checkstyle-result.xml
+            **/target/site/jacoco/**
