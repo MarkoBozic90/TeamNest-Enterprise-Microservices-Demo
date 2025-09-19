@@ -14,7 +14,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
+import org.springframework.security.oauth2.server.resource.web.access.server.BearerTokenServerAccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.web.server.BearerTokenServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter;
+import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter;
 
 
 @Configuration
@@ -22,18 +26,33 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+    public SecurityWebFilterChain securityWebFilterChain(final ServerHttpSecurity http) {
         http
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
+            .anonymous(ServerHttpSecurity.AnonymousSpec::disable)
+
             .authorizeExchange(reg -> reg
                 .pathMatchers("/actuator/**", "/__fallback/**", "/docs/**").permitAll()
                 .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyExchange().authenticated()
             )
+            .headers(h -> h
+                .contentTypeOptions(c -> {
+
+                }) // X-Content-Type-Options: nosniff
+                .frameOptions(fo -> fo.mode(XFrameOptionsServerHttpHeadersWriter.Mode.DENY)) // X-Frame-Options: DENY
+                .referrerPolicy(rp -> rp.policy(ReferrerPolicyServerHttpHeadersWriter.ReferrerPolicy.NO_REFERRER))
+                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'"))
+                // opcionalno:
+                .permissionsPolicy(pp -> pp.policy("geolocation=(), microphone=()"))
+            )
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint(new BearerTokenServerAuthenticationEntryPoint())
+                .accessDeniedHandler(new BearerTokenServerAccessDeniedHandler())
+            )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(reactiveJwtAuthConverter()))
             );
-
         return http.build();
     }
 
@@ -44,19 +63,20 @@ public class SecurityConfig {
         return new ReactiveJwtAuthenticationConverterAdapter(delegate);
     }
 
-
-    private Collection<GrantedAuthority> mapRolesToAuthorities(Jwt jwt) {
+    private Collection<GrantedAuthority> mapRolesToAuthorities(final Jwt jwt) {
         var roles = extractRoles(jwt);
         return toAuthorities(roles);
     }
 
-    private List<String> extractRoles(Jwt jwt) {
+    @SuppressWarnings("unchecked")
+    private List<String> extractRoles(final Jwt jwt) {
+        // 1) "roles" (custom claim)
         List<String> roles = jwt.getClaimAsStringList("roles");
         if (roles != null) {
             return roles;
         }
 
-        // 2) fallback to Keycloak "realm_access.roles"
+        // 2) Keycloak: realm_access.roles
         Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
         if (realmAccess == null) {
             return List.of();
@@ -68,15 +88,14 @@ public class SecurityConfig {
             for (Object o : list) {
                 if (o != null) {
                     out.add(o.toString());
-                    return out;
                 }
             }
-
+            return out; // << bugfix: vrati posle petlje, ne unutra
         }
         return List.of();
     }
 
-    private Collection<GrantedAuthority> toAuthorities(List<String> roles) {
+    private Collection<GrantedAuthority> toAuthorities(final List<String> roles) {
         if (roles == null || roles.isEmpty()) {
             return List.of();
         }
