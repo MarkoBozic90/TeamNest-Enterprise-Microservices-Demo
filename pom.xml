@@ -316,7 +316,7 @@
                         <configuration>
                             <rules>
                                 <rule>
-                                    <element>PROJECT</element>
+                                    <element>BUNDLE</element>
                                     <limits>
                                         <limit>
                                             <counter>INSTRUCTION</counter>
