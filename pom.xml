@@ -52,8 +52,7 @@
         <!-- shared multi-moduli -->
         <module>shared/bom</module>
         <module>shared/problem</module>
-        <module>shared/dto</module>
-        <module>shared/test-utils</module>
+
         <!-- apps -->
         <module>gateway</module>
     </modules>
@@ -317,7 +316,7 @@
                         <configuration>
                             <rules>
                                 <rule>
-                                    <element>PROJECT</element>
+                                    <element>BUNDLE</element>
                                     <limits>
                                         <limit>
                                             <counter>INSTRUCTION</counter>
