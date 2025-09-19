@@ -1,16 +1,12 @@
-/*
+
 package com.teamnest.gateway.filters;
 
+import java.util.UUID;
 import org.slf4j.MDC;
-
+import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
-import org.springframework.http.HttpHeaders;
-import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
 
-import java.util.UUID;
 
 @Configuration
 public class CorrelationIdFilter {
@@ -44,8 +40,12 @@ public class CorrelationIdFilter {
     }
 
     private static String firstNonEmpty(String... vals) {
-        for (var s : vals) if (s != null && !s.isBlank()) return s;
+        for (var s : vals) {
+            if (s != null && !s.isBlank()) {
+                return s;
+            }
+        }
         return null;
     }
 }
-*/
+
