@@ -40,9 +40,9 @@ class FallbackControllerWebFluxItTest {
             var sms = new StaticMessageSource();
             sms.setUseCodeAsDefaultMessage(true);
             sms.addMessage("fallback.users.title",      Locale.ENGLISH, "Users down");
-            sms.addMessage("fallback.users.detail",     Locale.ENGLISH, "Please retry later");
+            sms.addMessage("fallback.users.detail",     Locale.ENGLISH, "User service temporarily unavailable, please retry");
             sms.addMessage("fallback.trainings.title",  Locale.ENGLISH, "Trainings down");
-            sms.addMessage("fallback.trainings.detail", Locale.ENGLISH, "Retry later");
+            sms.addMessage("fallback.trainings.detail", Locale.ENGLISH, "Training service temporarily unavailable, please retry");
             return sms;
         }
     }
