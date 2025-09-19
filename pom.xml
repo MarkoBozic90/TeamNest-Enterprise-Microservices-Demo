@@ -40,6 +40,7 @@
         <jacoco.version>0.8.11</jacoco.version>
         <maven.checkstyle.version>3.5.0</maven.checkstyle.version>
         <sonar.maven.plugin>3.11.0.3922</sonar.maven.plugin>
+        <junit-bom.version>5.11.3</junit-bom.version>
 
         <!-- coverage threshold -->
         <coverage.minimum>0.80</coverage.minimum>
@@ -103,7 +104,15 @@
                 <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
                 <version>${springdoc.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
+
     </dependencyManagement>
 
     <!-- Parent deps koje će naslediti svi moduli (oprezno s ovim) -->
@@ -316,7 +325,7 @@
                         <configuration>
                             <rules>
                                 <rule>
-                                    <element>PROJECT</element>
+                                    <element>BUNDLE</element>
                                     <limits>
                                         <limit>
                                             <counter>INSTRUCTION</counter>
