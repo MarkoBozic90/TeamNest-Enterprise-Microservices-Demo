@@ -1,106 +1,146 @@
 package com.teamnest.gateway.error;
 
-
+import com.teamnest.gateway.trace.RequestIdFilterConfig;
 import com.teamnest.shared.problem.ErrorCode;
-import com.teamnest.shared.problem.ErrorTypeMapper;
-import com.teamnest.shared.problem.ProblemTypes;
 import com.teamnest.shared.problem.ServiceException;
-import org.springframework.context.MessageSource;
+import java.util.Locale;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.net.URI;
-import java.time.OffsetDateTime;
-import java.util.Locale;
+import org.springframework.web.server.ServerWebExchange;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
+@Slf4j
 public class GlobalExceptionHandler {
 
-    private final MessageSource messages;
+    private final ProblemFactory problems;
 
-    public GlobalExceptionHandler(MessageSource messages) {
-        this.messages = messages;
-    }
-
-    // ---- domain/service exceptions (naš format) ----
     @ExceptionHandler(ServiceException.class)
-    ProblemDetail handleService(ServiceException ex, Locale locale) {
-        int status = ex.getCode().httpStatus();
-        var pd = ProblemDetail.forStatus(status);
-        pd.setType(ErrorTypeMapper.toType(ex.getCode()));
-       // pd.setTitle(messageSource.getMessage(ex.getCode().i18nKey(), null, defaultTitle(ex), locale));
-        pd.setDetail(ex.getMessage());
-        pd.setProperty("errorCode", ex.getCode().code());
-        // add timestamp/app/correlationId if you like
-        return pd;
+    ResponseEntity<ProblemDetail> handleService(
+        final ServiceException ex,
+        final  Locale loc,
+        final  ServerWebExchange exg) {
+        if (exg.getResponse().isCommitted()) {
+            throw ex;
+        }
+        var pd = problems.build(ex.getCode(),
+            HttpStatus.valueOf(ex.getCode().getHttpStatus()), // ili ex.getStatus() ako ima
+            ex.getMessage(), loc, exg);
+        if (ex.getDetails() != null) {
+            pd.setProperty("details", ex.getDetails());
+        }
+        return respond(pd, exg);
     }
 
-    // ---- auth / access ----
     @ExceptionHandler(AuthenticationException.class)
-    ProblemDetail handleAuth(AuthenticationException ex, Locale locale) {
-        var pd = newProblem(HttpStatus.UNAUTHORIZED, ProblemTypes.AUTH,
-            msg("problem.unauthenticated", "Authentication required", locale));
+    public ResponseEntity<ProblemDetail> handleAuth(
+        final AuthenticationException ex,
+        final Locale loc,
+        final ServerWebExchange exg) {
+        if (exg.getResponse().isCommitted()) {
+            throw ex;
+        }
+        var pd = problems.build(ErrorCode.AUTHENTICATION_FAILED, HttpStatus.UNAUTHORIZED, ex.getMessage(), loc, exg);
         pd.setProperty("hint", "Provide a valid Bearer token");
-        return pd;
+        return respond(pd, exg);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    ProblemDetail handleForbidden(AccessDeniedException ex, Locale locale) {
-        return newProblem(HttpStatus.FORBIDDEN, ProblemTypes.FORBIDDEN,
-            msg("problem.forbidden", "You don't have permission to access this resource", locale));
+    public ResponseEntity<ProblemDetail> handleForbidden(AccessDeniedException ex, Locale loc, ServerWebExchange exg) {
+        if (exg.getResponse().isCommitted()) {
+            throw ex;
+        }
+        var pd = problems.build(ErrorCode.ACCESS_FORBIDDEN, HttpStatus.FORBIDDEN, ex.getMessage(), loc, exg);
+        return respond(pd, exg);
     }
 
-    // ---- gateway/downstream / generic status ----
+    // Status-based; čuva ORIGINALNI status, bira "kategoriju"
     @ExceptionHandler({ResponseStatusException.class, ErrorResponseException.class})
-    ProblemDetail handleStatus(RuntimeException ex, Locale locale) {
-        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
-        if (ex instanceof ResponseStatusException rse) status = HttpStatus.valueOf(rse.getStatusCode().value());
-        if (ex instanceof ErrorResponseException ere) status = HttpStatus.valueOf(ere.getStatusCode().value());
+    public ResponseEntity<ProblemDetail> handleStatus(
+        final RuntimeException ex,
+        final Locale loc,
+        final ServerWebExchange exg) {
+        if (exg.getResponse().isCommitted()) {
+            throw ex;
+        }
 
-        URI type = (status.is5xxServerError()) ? ProblemTypes.DOWNSTREAM : ProblemTypes.INTERNAL;
-        String titleKey = status.is5xxServerError() ? "problem.downstream" : "problem.internal";
-        return newProblem(status, type, msg(titleKey, status.getReasonPhrase(), locale));
+        HttpStatus status;
+        String detail = null;
+
+        if (ex instanceof ResponseStatusException rse) {
+            status = HttpStatus.valueOf(rse.getStatusCode().value());
+            detail = java.util.Objects.toString(rse.getReason(), "");
+        }
+        else if (ex instanceof ErrorResponseException ere) {
+            status = HttpStatus.valueOf(ere.getStatusCode().value());
+            var body = ere.getBody();
+            detail = java.util.Objects.toString(body.getDetail(), "");
+        }
+        else {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+            detail = "";
+        }
+
+        final ErrorCode code;
+
+        if (status.is5xxServerError()) {
+            code = ErrorCode.DOWNSTREAM_UNAVAILABLE;
+        }
+        else if (status.is4xxClientError()) {
+            code = ErrorCode.UPSTREAM_CLIENT_ERROR;
+        }
+        else {
+            code = ErrorCode.INTERNAL_ERROR;
+        }
+
+
+        var pd = problems.build(code, status, detail, loc, exg);
+        return respond(pd, exg);
     }
 
-    // ---- fallback ----
     @ExceptionHandler(Throwable.class)
-    ProblemDetail handleOther(Throwable ex, Locale locale) {
-        var pd = newProblem(HttpStatus.INTERNAL_SERVER_ERROR, ProblemTypes.INTERNAL,
-            msg("problem.internal", "Unexpected error", locale));
+    public ResponseEntity<ProblemDetail> handleOther(
+        final Throwable ex,
+        final Locale loc,
+        final ServerWebExchange exg) {
+        if (exg.getResponse().isCommitted()) {
+            if (ex instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new IllegalStateException("Response already committed", ex);
+        }
+        var pd = problems.build(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), loc, exg);
         pd.setProperty("cause", ex.getClass().getSimpleName());
-        return pd;
+        return respond(pd, exg);
     }
 
-    // ---- helpers ----
-    private record Mapping(HttpStatus status, URI type) { }
-    private Mapping mapCode(ErrorCode code) {
-        return switch (code) {
-            case VALIDATION_ERROR -> new Mapping(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION);
-            case RATE_LIMIT_EXCEEDED -> new Mapping(HttpStatus.TOO_MANY_REQUESTS, ProblemTypes.RATE_LIMIT);
-//            case UNAUTHENTICATED -> new Mapping(HttpStatus.UNAUTHORIZED, ProblemTypes.AUTH);
-//            case FORBIDDEN -> new Mapping(HttpStatus.FORBIDDEN, ProblemTypes.FORBIDDEN);
-            case DOWNSTREAM_UNAVAILABLE -> new Mapping(HttpStatus.SERVICE_UNAVAILABLE, ProblemTypes.DOWNSTREAM);
-            default -> new Mapping(HttpStatus.INTERNAL_SERVER_ERROR, ProblemTypes.INTERNAL);
-        };
-    }
+    private ResponseEntity<ProblemDetail> respond(final ProblemDetail pd, final ServerWebExchange exchange) {
+        var b = ResponseEntity.status(pd.getStatus())
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON);
 
-    private ProblemDetail newProblem(HttpStatus status, URI type, String title) {
-        var pd = ProblemDetail.forStatusAndDetail(status, title);
-        pd.setType(type);
-        pd.setTitle(title);
-        pd.setProperty("timestamp", OffsetDateTime.now().toString());
-        pd.setProperty("app", "gateway");
-        return pd;
-    }
+        var rid = exchange.getResponse().getHeaders().getFirst(RequestIdFilterConfig.HEADER);
+        if (rid == null || rid.isBlank()) {
+            rid = exchange.getRequest().getHeaders().getFirst(RequestIdFilterConfig.HEADER);
+        }
+        if (rid != null && !rid.isBlank()) {
+            b.header(RequestIdFilterConfig.HEADER, rid);
+        }
 
-    private String msg(String key, String fallback, Locale locale) {
-        try { return messages.getMessage(key, null, locale); }
-        catch (Exception ignore) { return fallback; }
+        if (pd.getStatus() == HttpStatus.TOO_MANY_REQUESTS.value()) {
+            b.header(HttpHeaders.RETRY_AFTER, "5");
+            pd.setProperty("retryAfter", "5");
+        }
+        return b.body(pd);
     }
 }

@@ -1,4 +1,4 @@
-package com.teamnest.gateway.test;
+package com.teamnest.gateway.error;
 
 import com.teamnest.gateway.trace.RequestIdFilterConfig;
 import com.teamnest.shared.problem.ErrorCode;
@@ -32,8 +32,8 @@ public class ProblemFactory {
             try {
                 pd.setType(URI.create(code.getProblemType().toString()));
             }
-            catch (Exception ignore) {
-                log.error(code.getProblemType().toString(), ignore);
+            catch (Exception ex) {
+                log.error(code.getProblemType().toString(), ex);
 
             }
         }
@@ -55,8 +55,8 @@ public class ProblemFactory {
         try {
             pd.setInstance(URI.create(exchange.getRequest().getPath().value()));
         }
-        catch (Exception ignore) {
-            log.error(code.getI18nKey(), ignore);
+        catch (Exception ex) {
+            log.error(code.getI18nKey(), ex);
         }
 
         // requestId (iz response headera, pa iz request headera)
