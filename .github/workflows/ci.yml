@@ -73,6 +73,8 @@ jobs:
         run: |
           bash ./mvnw -e -f pom.xml -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization=markobozic90 \
+            -Dsonar.projectKey=markobozic90_TeamNest-Enterprise-Microservices-Demo \
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
