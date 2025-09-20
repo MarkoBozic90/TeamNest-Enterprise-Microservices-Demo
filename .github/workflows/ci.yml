@@ -77,6 +77,20 @@ jobs:
             -Dsonar.projectKey=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo \
             -Dsonar.qualitygate.wait=true
 
+      - name: Build + SonarCloud (all modules)
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && hashFiles('**/*.java') != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+        shell: bash
+        run: |
+          ./mvnw -e -B -ntp clean verify
+          ./mvnw -e -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization=markobozic90 \
+            -Dsonar.projectKey=MarkoBozic90_TeamNest-Enterprise-Microservices-Demo \
+            -Dsonar.qualitygate.wait=true
+
       - name: Skipped Sonar (no token or fork PR)
         if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && hashFiles('**/*.java') != '') }}
         run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
