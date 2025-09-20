@@ -65,7 +65,7 @@ jobs:
           bash ./mvnw -f pom.xml -B -ntp -DskipITs=false verify
 
       - name: SonarCloud (QG)
-        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        if: ${{ env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && hashFiles('**/*.java') != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
@@ -78,7 +78,7 @@ jobs:
             -Dsonar.qualitygate.wait=true
 
       - name: Skipped Sonar (no token or fork PR)
-        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)) }}
+        if: ${{ !(env.SONAR_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && hashFiles('**/*.java') != '') }}
         run: echo "Skipping SonarCloud (no SONAR_TOKEN or fork PR)."
 
       - name: Upload reports
