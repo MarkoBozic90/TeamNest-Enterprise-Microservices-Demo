@@ -1,0 +1,101 @@
+server:
+  port: 8888
+#  ssl:
+#    enabled: true
+#    key-store: file:/
+#    key-store-password: ${TLS_KEYSTORE_PASSWORD}
+#    key-store-type: PKCS12
+#    trust-store: file:/app/tls/server-truststore.p12
+#    trust-store-password: ${TLS_TRUSTSTORE_PASSWORD}
+#    client-auth: need
+
+spring:
+  config:
+    import: vault://    # <— THIS enables Vault as a config data source at bootstrap
+
+  application:
+    name: config-server
+  security:
+    user:
+      name: ${CONFIG_USER:config}
+      password: ${CONFIG_PASSWORD:changeme}
+      roles: ADMIN
+  cloud:
+    vault:
+      scheme: http
+      host: localhost   # todo  running from IntelliJ on your host → use localhost
+      port: 8200
+      token: ${VAULT_TOKEN:root}
+      kv:
+        enabled: true
+        backend: secret
+        profile-separator: '/'
+    config:
+      server:
+        monitor:
+          github:
+            secret: ${GITHUB_WEBHOOK_SECRET:}
+        git:
+          uri: ${CONFIG_GIT_URI}
+          default-label: ${CONFIG_GIT_BRANCH:main}
+          username: ${CONFIG_GIT_USERNAME}
+          password: ${CONFIG_GIT_PASSWORD}
+          basedir: ${user.home}/.teamnest/config-repo
+          clone-on-start: true
+          force-pull: true
+          timeout: 10
+
+        vault:
+          enabled: false
+
+    bus:
+      enabled: true
+      destination: springCloudBus
+      ack:
+        enabled: true
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:teamnest}
+    password: ${RABBIT_PASS:teamnest}
+    requested-heartbeat: 20s
+    connection-timeout: 5s
+
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,busrefresh,busenv,refresh
+
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      validate-group-membership: true
+      group:
+        readiness:
+          include: readinessState, configServer, rabbit, diskSpace, ping
+        liveness:
+          include: ping, livenessState
+  observations:
+    key-values:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  level:
+    org.springframework.cloud.config: INFO
+    org.springframework.cloud.bus: INFO
+    org.springframework.amqp: INFO
+    org.springframework.boot.actuate.health: DEBUG
+
+example:
+  message: "Hello from config-repo (default profile)"
