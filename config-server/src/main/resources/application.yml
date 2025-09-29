@@ -11,7 +11,7 @@ server:
 
 spring:
   config:
-    import: vault://    # <— THIS enables Vault as a config data source at bootstrap
+    import: vault://
 
   application:
     name: config-server
@@ -23,7 +23,7 @@ spring:
   cloud:
     vault:
       scheme: http
-      host: localhost   # todo  running from IntelliJ on your host → use localhost
+      host: localhost   # todo  running from IntelliJ on your host → use vault
       port: 8200
       token: ${VAULT_TOKEN:root}
       kv:
@@ -98,4 +98,4 @@ logging:
     org.springframework.boot.actuate.health: DEBUG
 
 example:
-  message: "Hello from config-repo (default profile)"
+  message: Hello from config-repo (default profile)
