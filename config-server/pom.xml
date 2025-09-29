@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
+    <!-- Ako ti je parent isti modul, proveri da relativePath pokazuje NA parent POM,
+         ili samo ukloni <relativePath> ako je parent u Maven repo-u. -->
     <parent>
         <groupId>com.teamnest</groupId>
         <artifactId>teamnest-enterprise-demo</artifactId>
         <version>1.0.0-SNAPSHOT</version>
-        <relativePath>../config-server</relativePath>
+        <!-- Ako je ovo greškom upućivalo na isti modul, možeš ukloniti ovu liniju ili podesiti putanju ka parent-u -->
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>config-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>config-server</name>
     <description>config-server</description>
+
     <licenses>
         <license>
             <name>MIT License</name>
@@ -38,22 +44,36 @@
 
     <scm>
         <connection>scm:git:https://github.com/MarkoBozic90/teamnest-enterprise-demo.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/MarkoBozic90/teamnest-enterprise-demo.git
-        </developerConnection>
+        <developerConnection>scm:git:ssh://git@github.com/MarkoBozic90/teamnest-enterprise-demo.git</developerConnection>
         <tag>HEAD</tag>
         <url>https://github.com/MarkoBozic90/teamnest-enterprise-demo</url>
     </scm>
 
     <properties>
-        <java.version>17</java.version>
+        <!-- JDK 21 zbog testova i Spring Boot 3.5.x -->
+        <java.version>21</java.version>
+        <!-- Spring Cloud release train koji pokriva 4.3.0 artefakte -->
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
     </properties>
+
     <dependencyManagement>
         <dependencies>
+            <!-- Spring Cloud BOM -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
-                <type>pom</type><scope>import</scope>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Testcontainers BOM (da ne navodimo verzije po modulima) -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>1.20.4</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -66,11 +86,9 @@
         </dependency>
 
         <!-- Spring Cloud Bus preko RabbitMQ -->
-        <!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-bus-amqp -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bus-amqp</artifactId>
-            <version>4.3.0</version>
         </dependency>
 
         <!-- Security + Actuator -->
@@ -82,37 +100,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- Vault (KV v2) za bootstrap tajne -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-vault-config</artifactId>
-            <version>4.3.0</version>
-
         </dependency>
 
-<!--        &lt;!&ndash; Vault (KV v2) &ndash;&gt;
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-vault-config</artifactId>
-            <version>4.3.0</version>
-
-        </dependency>-->
-
-        <!-- Micrometer Prometheus + Tracing (OTel) -->
-        <!-- https://mvnrepository.com/artifact/io.micrometer/micrometer-registry-prometheus -->
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-            <version>1.16.0-M3</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-config-monitor -->
+        <!-- Config Monitor za /monitor webhook (GitHub/GitLab) -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-config-monitor</artifactId>
-            <version>5.0.0-M2</version>
-            <scope>runtime</scope>
         </dependency>
 
+        <!-- Micrometer Prometheus + Tracing (OTel) — verzije povlači Boot -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-tracing-bridge-otel</artifactId>
@@ -121,20 +126,63 @@
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-exporter-otlp</artifactId>
         </dependency>
+
+        <!-- JSON logovi za Loki/ELK -->
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
             <version>8.0</version>
         </dependency>
 
+        <!-- ===== TEST dependencies ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers core + JUnit 5 integration -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- RabbitMQ Testcontainer (za Bus integration test) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>rabbitmq</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Boot -->
+            <!-- Spring Boot plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Compiler plugin (zakuca JDK 21) -->
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <release>${java.version}</release>
+                </configuration>
+            </plugin>
+
+            <!-- Surefire (JUnit 5) -->
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.1</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                </configuration>
             </plugin>
 
             <!-- Checkstyle -->
@@ -143,7 +191,7 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.5.0</version>
                 <configuration>
-                    <configLocation>../shared/checkstyle.xml</configLocation>
+                    <configLocation>../config/checkstyle/checkstyle.xml</configLocation>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
                     <linkXRef>false</linkXRef>
@@ -152,24 +200,30 @@
                     <execution>
                         <id>validate-style</id>
                         <phase>verify</phase>
-                        <goals><goal>check</goal></goals>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- JaCoCo (za Sonar) -->
+            <!-- JaCoCo -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.11</version>
                 <executions>
                     <execution>
-                        <goals><goal>prepare-agent</goal></goals>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
                     </execution>
                     <execution>
                         <id>report</id>
                         <phase>prepare-package</phase>
-                        <goals><goal>report</goal></goals>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

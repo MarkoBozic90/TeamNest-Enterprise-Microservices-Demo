@@ -15,12 +15,9 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // public read-only
                 .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
-                // protected write endpoints
                 .requestMatchers(HttpMethod.POST, "/monitor", "/actuator/busrefresh", "/actuator/refresh")
                 .hasRole("ADMIN")
-                // ostalo
                 .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults());

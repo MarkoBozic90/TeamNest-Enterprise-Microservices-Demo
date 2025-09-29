@@ -7,7 +7,6 @@
         </encoder>
     </appender>
 
-    <!-- (opciono) Mapped Diagnostic Context za trace/span -->
     <appender name="JSON_WITH_MDC" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
