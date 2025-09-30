@@ -29,7 +29,7 @@ public class FallbackController {
         return Mono.just(buildFallback(new FallbackProblemParams(
             locale, ex,
             "user-service",
-            "fallback.users.title",   "Service unavailable",
+            "fallback.users.title",   "Users down",
             "fallback.users.detail",  "User service temporarily unavailable, please retry",
             URI.create("about:blank#user-service-unavailable"))
         ));
@@ -40,7 +40,7 @@ public class FallbackController {
         return Mono.just(buildFallback(new FallbackProblemParams(
             locale, ex,
             "training-service",
-            "fallback.trainings.title", "Service unavailable",
+            "fallback.trainings.title", "Trainings down",
             "fallback.trainings.detail", "Training service temporarily unavailable, please retry",
             URI.create("about:blank#training-service-unavailable")
         )));
