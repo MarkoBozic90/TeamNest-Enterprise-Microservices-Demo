@@ -12,13 +12,11 @@ import reactor.netty.http.client.HttpClient;
 @Configuration
 public class NettyHttpClientConfig {
 
-    // Ako koristiš i embedded Netty server tuning (opciono)
     @Bean
     ReactiveWebServerFactory reactiveWebServerFactory() {
         return new NettyReactiveWebServerFactory();
     }
 
-    // Gateway HttpClient tuning – zamena za deprecated properties
     @Bean
     HttpClientCustomizer gatewayHttpClientTimeouts() {
         return (HttpClient http) -> http

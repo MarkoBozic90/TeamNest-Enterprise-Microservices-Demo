@@ -2,6 +2,7 @@ package com.teamnest.gateway.config;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -12,6 +13,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 public class TestRedisConfig {
 
     @Bean
+    @Primary
     public ReactiveRedisConnectionFactory reactiveRedisConnectionFactory(Environment env) {
         String host = env.getRequiredProperty("spring.data.redis.host");
         int port = Integer.parseInt(env.getRequiredProperty("spring.data.redis.port"));
