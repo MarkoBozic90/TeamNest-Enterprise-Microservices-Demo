@@ -1,14 +1,15 @@
 package com.teamnest.userservice.model;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -21,23 +22,22 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor()
 @Getter
 @Builder(toBuilder = true)
-@Table(name = "users")
-public class User {
-
-
+@Table(name = "invite_revocations")
+public class InviteRevocation {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(unique = true, nullable = false)
-    private String username;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "invite_id", nullable = false)
+    private Invite invite;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    @Column(name = "revoked_by", nullable = false)
+    private String revokedBy;
 
-    private boolean enabled = true;
+    @Column(name = "revoked_at", nullable = false)
+    private Instant revokedAt;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private PersonalInformation personalInformation;
-
+    @Column(name = "reason", nullable = false)
+    private String reason;
 }
