@@ -1,6 +1,7 @@
 package com.teamnest.userservice.model;
 
-import com.teamnest.userservice.model.enums.InviteStatus;
+import com.teamnest.userservice.exception.InviteExhaustedException;
+import com.teamnest.userservice.exception.InviteExpiredException;
 import com.teamnest.userservice.model.enums.InviteType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
