@@ -1,7 +1,6 @@
 package com.teamnest.userservice.model;
 
-import com.teamnest.userservice.exception.InviteExhaustedException;
-import com.teamnest.userservice.exception.InviteExpiredException;
+import com.teamnest.userservice.model.enums.InviteStatus;
 import com.teamnest.userservice.model.enums.InviteType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -12,6 +11,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
@@ -23,6 +24,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.boot.model.naming.IllegalIdentifierException;
 
 @Entity
 @Table(
@@ -53,6 +55,9 @@ public class Invite extends Auditable {
     @Column(name = "token_hash", nullable = false, length = 64)
     private final String tokenHash;
 
+    @Column(name = "token_salt", length = 32, updatable = false)
+    private final String tokenSalt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 16)
     private final InviteType type; // 'PLAYER' | 'STAFF'
@@ -69,57 +74,127 @@ public class Invite extends Auditable {
     @OneToMany(mappedBy = "invite", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<InviteRedemption> redemptions = new HashSet<>();
 
-    @Column(name = "redeemed_at")
-    private final Instant redeemedAt;
-
-    @Column(name = "redeemed_by")
-    private final UUID redeemedBy;
+    @Builder.Default
+    @Column(name = "usage_limit ", nullable = false)
+    private final Integer usageLimit  = 1;
 
     @Builder.Default
-    @Column(name = "max_uses", nullable = false)
-    private final Integer maxUses = 1;
-
-    @Builder.Default
-    @Column(name = "uses", nullable = false)
-    private final Integer uses = 0;
+    @Column(name = "redemption_count", nullable = false)
+    private final Integer redemptionCount  = 0;
 
 
-    public void assertRedeemable(Instant now) {
-        assert expiresAt != null;
-        if (expiresAt.isBefore(now)) {
-            throw new InviteExpiredException(id);
+    /** True if expired by time boundary. */
+    public boolean isExpired(Instant now) {
+        final Instant t = (now != null) ? now : Instant.now();
+        if (expiresAt == null) {
+            throw new IllegalIdentifierException("Expires at cannot be null");
         }
-        if (uses >= maxUses) {
-            throw new InviteExhaustedException(id);
+        return !t.isBefore(expiresAt);
+    }
+
+    /** True if usage limit reached or exceeded. */
+    public boolean isExhausted() {
+        return redemptionCount >= usageLimit;
+    }
+
+    /** True if there exists any active revocation. Adjust if your model has "active" flag. */
+    public boolean isRevoked() {
+        return revocations != null && !revocations.isEmpty();
+    }
+
+    /** Current high-level status (single source of truth for clients). */
+    public InviteStatus getStatus(Instant now) {
+        if (isRevoked()) {
+            return InviteStatus.REVOKED;
         }
-        if (!revocations.isEmpty()) {
-            throw new IllegalStateException("Invite revoked");
+
+        if (isExpired(now)) {
+            return InviteStatus.EXPIRED;
+        }
+
+        if (isExhausted()) {
+            return InviteStatus.EXHAUSTED;
+        }
+
+        return InviteStatus.ACTIVE;
+    }
+
+    /** Can this invite be redeemed right now? */
+    public boolean canBeRedeemed(Instant now) {
+        return getStatus(now) == InviteStatus.ACTIVE;
+    }
+
+    /**
+     * Record a successful redemption (side-effecting).
+     * Must be called within a @Transactional service that persists this aggregate,
+     * relying on @Version for optimistic concurrency control.
+     */
+
+    public void onRedeemed(UUID userId, Instant when) {
+        // Defensive checks (service should have validated, but keep aggregate safe)
+        if (!canBeRedeemed(when)) {
+            throw new IllegalStateException("Invite cannot be redeemed in its current state: " + getStatus(when));
+        }
+
+        // Increment counter atomically in aggregate invariants.
+        this.redemptionCount = this.redemptionCount + 1;
+
+    }
+
+
+
+    // =================================================================
+    // Invariants & factories
+    // =================================================================
+
+    /** Enforce core invariants at creation time. Keep entity always-valid. */
+    @PrePersist
+    @PreUpdate
+    private void validateInvariants() {
+
+        if (tokenHash == null || tokenHash.length() != 64) {
+            throw new IllegalStateException("tokenHash must be a 64-char hex string");
+        }
+        if (clubId == null) {
+            throw new IllegalStateException("clubId must be provided");
+        }
+        if (type == null) {
+            throw new IllegalStateException("type must be provided");
         }
     }
 
-    public void incrementUse() {
-        this.uses = this.uses + 1;
-    }
-
-    public InviteRedemption addRedemption(UUID userId, Instant at) {
-        InviteRedemption r = InviteRedemption.builder()
-            .invite(this)
-            .redeemedBy(userId)
-            .redeemedAt(at)
+    // Convenience factory methods for readability at call sites
+    public static Invite singleUse(final UUID clubId,
+                                   final InviteType type,
+                                   final String tokenHash,
+                                   final String tokenSalt,
+                                   final Instant expiresAt) {
+        return Invite.builder()
+            .clubId(clubId)
+            .type(type)
+            .tokenHash(tokenHash)
+            .tokenSalt(tokenSalt)
+            .expiresAt(expiresAt)
+            .usageLimit(1)
+            .redemptionCount(0)
             .build();
-        this.redemptions.add(r);
-        return r;
     }
 
-    public InviteRevocation revoke(String actor, Instant at, String reason) {
-        InviteRevocation rev = InviteRevocation.builder()
-            .invite(this)
-            .revokedBy(actor)
-            .revokedAt(at)
-            .reason(reason)
+    public static Invite multiUse(final UUID clubId,
+                                  final InviteType type,
+                                  final String tokenHash,
+                                  final String tokenSalt,
+                                  final Instant expiresAt,
+                                  final int usageLimit) {
+        return Invite.builder()
+            .clubId(clubId)
+            .type(type)
+            .tokenHash(tokenHash)
+            .tokenSalt(tokenSalt)
+            .expiresAt(expiresAt)
+            .usageLimit(Math.max(usageLimit, 1))
+            .redemptionCount(0)
             .build();
-        this.revocations.add(rev);
-        return rev;
     }
 }
 

@@ -10,13 +10,19 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
+import jakarta.validation.constraints.NotNull;
+import java.io.Serializable;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "invite_redemptions",
@@ -25,30 +31,41 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class InviteRedemption {
+@EqualsAndHashCode(of = "id", callSuper = false)
+@ToString(exclude = "invite")
+public class InviteRedemption extends Auditable implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "invite_id", nullable = false)
+    @NotNull
     private Invite invite;
 
     @Column(name = "user_id", nullable = false)
+    @NotNull
     private UUID userId;
 
     @Column(name = "redeemed_at", nullable = false)
+    @NotNull
     private Instant redeemedAt;
 
     @Column(name = "redeemed_by", nullable = false)
+    @NotNull
     private UUID redeemedBy;
 
-    public static InviteRedemption of(Invite invite, UUID userId, Instant at) {
+    public static InviteRedemption of(Invite invite, UUID userId, UUID actorId, Instant at) {
         return InviteRedemption.builder()
-            .invite(invite)
-            .userId(userId)
-            .redeemedAt(at)
+            .invite(Objects.requireNonNull(invite, "invite"))
+            .userId(Objects.requireNonNull(userId, "userId"))
+            .redeemedBy(Objects.requireNonNull(actorId, "redeemedBy"))
+            .redeemedAt(Objects.requireNonNullElseGet(at, Instant::now))
             .build();
     }
 }
