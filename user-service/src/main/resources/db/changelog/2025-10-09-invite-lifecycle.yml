@@ -1,0 +1,97 @@
+databaseChangeLog:
+  - changeSet:
+      id: invite-lifecycle-001
+      author: teamnest
+      changes:
+        - createTable:
+            tableName: invite_redemptions
+            schemaName: account_management_service
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: version, type: bigint, constraints: { nullable: false } }
+              - column: { name: invite_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: user_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: redeemed_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: redeemed_by, type: uuid, constraints: { nullable: false } }
+        - addUniqueConstraint:
+            tableName: invite_redemptions
+            columnNames: invite_id, user_id
+            constraintName: uq_invite_user
+        - addForeignKeyConstraint:
+            baseTableName: invite_redemptions
+            baseColumnNames: invite_id
+            referencedTableName: invite
+            referencedColumnNames: id
+            constraintName: fk_redemptions_invite
+            onDelete: CASCADE
+        - createIndex:
+            tableName: invite_redemptions
+            indexName: idx_redemptions_invite_at
+            columns:
+              - column: { name: invite_id }
+              - column: { name: redeemed_at }
+
+  - changeSet:
+      id: invite-lifecycle-002
+      author: teamnest
+      changes:
+        - createTable:
+            tableName: invite_revocations
+            schemaName: account_management_service
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: version, type: bigint, constraints: { nullable: false } }
+              - column: { name: invite_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: revoked_by, type: uuid, constraints: { nullable: false } }
+              - column: { name: revoked_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: reason, type: varchar(255), constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: invite_revocations
+            baseColumnNames: invite_id
+            referencedTableName: invite
+            referencedColumnNames: id
+            constraintName: fk_revocations_invite
+            onDelete: CASCADE
+        - createIndex:
+            tableName: invite_revocations
+            indexName: idx_revocations_invite_at
+            columns:
+              - column: { name: invite_id }
+              - column: { name: revoked_at }
+
+  - changeSet:
+      id: invite-outbox-001
+      author: teamnest
+      changes:
+        - createTable:
+            tableName: outbox_events
+            schemaName: account_management_service
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: type, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: aggregate_type, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: aggregate_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp, constraints: { nullable: false } }
+              - column: { name: payload_json, type: text, constraints: { nullable: false } }
+        - createIndex:
+            tableName: outbox_events
+            indexName: idx_outbox_type_created
+            columns:
+              - column: { name: type }
+              - column: { name: created_at }
+
+  - changeSet:
+      id: invite-backfill-rc-001
+      author: teamnest
+      runOnChange: true
+      changes:
+        - sql:
+            sql: |
+              UPDATE account_management_service.invite i
+              SET redemption_count = COALESCE(agg.cnt, 0)
+              FROM (
+                  SELECT invite_id, COUNT(*) AS cnt
+                  FROM account_management_service.invite_redemptions
+                  GROUP BY invite_id
+              ) agg
+              WHERE i.id = agg.invite_id;

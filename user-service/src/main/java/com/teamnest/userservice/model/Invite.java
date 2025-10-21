@@ -29,16 +29,16 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+
 @Entity
 @Table(
     name = "invite",
     schema = "account_management_service",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_invite_token_hash", columnNames = "token_hash")
-    },
+    uniqueConstraints = @UniqueConstraint(name = "uk_invite_token_hash", columnNames = "token_hash"),
     indexes = {
         @Index(name = "idx_invite_email", columnList = "email"),
-        @Index(name = "idx_invite_club", columnList = "club_id")
+        @Index(name = "idx_invite_club", columnList = "club_id"),
+        @Index(name = "idx_invite_expires_at", columnList = "expires_at")
     }
 )
 @Getter
@@ -63,10 +63,13 @@ public class Invite extends Auditable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 16)
-    private final InviteType type; // 'PLAYER' | 'STAFF'
+    private final InviteType type; // PLAYER | STAFF | ...
 
     @Column(name = "club_id", nullable = false)
     private final UUID clubId;
+
+    @Column(name = "email", length = 255) // ako je deo modela
+    private final String email;
 
     @Column(name = "expires_at", nullable = false)
     private final Instant expiresAt;
@@ -78,47 +81,41 @@ public class Invite extends Auditable {
     private Set<InviteRedemption> redemptions = new HashSet<>();
 
     @Builder.Default
-    @Column(name = "usage_limit ", nullable = false)
-    private final Integer usageLimit  = 1;
+    @Column(name = "usage_limit", nullable = false)
+    private final Integer usageLimit = 1;
 
     @Builder.Default
     @Column(name = "redemption_count", nullable = false)
-    private final Integer redemptionCount  = 0;
+    private Integer redemptionCount = 0;
 
-
-    /** True if expired by time boundary. */
+    // ---------- Status/guards ----------
     public boolean isExpired(Instant now) {
         final Instant t = (now != null) ? now : Instant.now();
         if (expiresAt == null) {
-            throw new InviteExpiredException("Expires at cannot be null");
+            throw new InviteInvalidStateException("expiresAt cannot be null");
         }
+
         return !t.isBefore(expiresAt);
     }
 
-    /** True if usage limit reached or exceeded. */
     public boolean isExhausted() {
         return redemptionCount >= usageLimit;
     }
 
-    /** True if there exists any active revocation. Adjust if your model has "active" flag. */
     public boolean isRevoked() {
         return revocations != null && !revocations.isEmpty();
     }
 
-    /** Current high-level status (single source of truth for clients). */
     public InviteStatus getStatus(Instant now) {
         if (isRevoked()) {
             return InviteStatus.REVOKED;
         }
-
         if (isExpired(now)) {
             return InviteStatus.EXPIRED;
         }
-
         if (isExhausted()) {
             return InviteStatus.EXHAUSTED;
         }
-
         return InviteStatus.ACTIVE;
     }
 
@@ -126,64 +123,30 @@ public class Invite extends Auditable {
         if (isRevoked()) {
             throw new InviteRevokedException("Invite is revoked");
         }
-
         if (isExpired(now)) {
             throw new InviteExpiredException("Invite is expired");
         }
-
         if (isExhausted()) {
             throw new InviteExhaustedException("Invite usage limit reached");
         }
     }
 
-    /** Creates & attaches a redemption. Must be called in @Transactional aggregate boundary. */
-    public InviteRedemption addRedemption(UUID userId, Instant when) {
+    // ---------- Helpers ----------
+    public InviteRedemption addRedemption(UUID userId, UUID actorId, Instant when) {
         requireActive(when);
-        var redemption = InviteRedemption.of(this, UUID.randomUUID(), userId, when);
-        redemptions.add(redemption);
-        // keep fast counter for queries/compatibility
+        var r = InviteRedemption.of(this, userId, actorId, when);
+        redemptions.add(r);
         this.redemptionCount = this.redemptionCount + 1;
-        return redemption;
+        return r;
     }
 
-    /** Creates & attaches a revocation. */
-    //todo add uuid from token
-    public InviteRevocation revoke(String reason, Instant when) {
-        var rev = InviteRevocation.of(this, UUID.randomUUID(), reason, when);
-
+    public InviteRevocation revoke(UUID actorId, String reason, Instant when) {
+        var rev = InviteRevocation.of(this, actorId, reason, when);
         revocations.add(rev);
         return rev;
     }
 
-    /** Can this invite be redeemed right now? */
-    public boolean canBeRedeemed(Instant now) {
-        return getStatus(now) == InviteStatus.ACTIVE;
-    }
-
-    /**
-     * Record a successful redemption (side-effecting).
-     * Must be called within a @Transactional service that persists this aggregate,
-     * relying on @Version for optimistic concurrency control.
-     */
-
-    public void onRedeemed(UUID userId, Instant when) {
-        // Defensive checks (service should have validated, but keep aggregate safe)
-        if (!canBeRedeemed(when)) {
-            throw new IllegalStateException("Invite cannot be redeemed in its current state: " + getStatus(when));
-        }
-
-        // Increment counter atomically in aggregate invariants.
-        this.redemptionCount = this.redemptionCount + 1;
-
-    }
-
-
-
-    // =================================================================
-    // Invariants & factories
-    // =================================================================
-
-    /** Enforce core invariants at creation time. Keep entity always-valid. */
+    // ---------- Invariants ----------
     @PrePersist
     @PreUpdate
     private void validateInvariants() {

@@ -421,3 +421,21 @@ Ako želiš, mogu odmah da ti:
 }
 }
 ```
+```aiignore
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN=REPLACE_ME_VAULT_TOKEN
+
+vault kv put -mount=secret teamnest/userservice \
+  CONFIG_GIT_URI="https://github.com/MarkoBozic90/teamnest-config-repo-demo" \
+  CONFIG_GIT_BRANCH="main" \
+  CONFIG_GIT_USERNAME="my-git-user" \
+  CONFIG_GIT_PASSWORD="my-git-pass" \
+  RABBIT_HOST="localhost" \
+  RABBIT_PORT="5672" \
+  RABBIT_USER="guest" \
+  RABBIT_PASS="guest"
+```
+
+```
+$env:VAULT_ADDR="http://127.0.0.1:8200"; $env:VAULT_TOKEN="root"; vault kv put -mount=secret config-server CONFIG_GIT_URI="https://github.com/MarkoBozic90/teamnest-config-repo-demo" CONFIG_GIT_BRANCH="main" CONFIG_GIT_USERNAME="my-git-user" CONFIG_GIT_PASSWORD="my-git-pass" RABBIT_HOST="localhost" RABBIT_PORT="5672" RABBIT_USER="guest" RABBIT_PASS="guest"
+```

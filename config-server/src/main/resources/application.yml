@@ -29,7 +29,9 @@ spring:
       kv:
         enabled: true
         backend: secret
+        application-name: config-server
         profile-separator: '/'
+
     config:
       server:
         monitor:
@@ -44,7 +46,7 @@ spring:
           clone-on-start: true
           force-pull: true
           timeout: 10
-
+          search-paths: "{application}"
         vault:
           enabled: false
 
