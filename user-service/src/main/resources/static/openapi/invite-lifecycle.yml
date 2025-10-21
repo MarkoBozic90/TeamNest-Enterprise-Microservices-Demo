@@ -1,0 +1,53 @@
+paths:
+  /api/invites/{id}/redeem:
+    post:
+      summary: Redeem invite
+      operationId: redeemInvite
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemInviteRequest'
+      responses:
+        '201': { description: Created }
+        '403': { description: Invite revoked }
+        '409': { description: Invite exhausted or already redeemed }
+        '410': { description: Invite expired }
+  /api/invites/{id}/revoke:
+    post:
+      summary: Revoke invite
+      operationId: revokeInvite
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RevokeInviteRequest' }
+      responses:
+        '201': { description: Created }
+components:
+  schemas:
+    RedeemInviteRequest:
+      type: object
+      required: [userId, actorId]
+      properties:
+        userId:  { type: string, format: uuid }
+        actorId: { type: string, format: uuid }
+        at:      { type: string, format: date-time }
+    RevokeInviteRequest:
+      type: object
+      required: [actorId, reason]
+      properties:
+        actorId: { type: string, format: uuid }
+        reason:  { type: string, minLength: 1, maxLength: 255 }
+        at:      { type: string, format: date-time }

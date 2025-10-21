@@ -2,6 +2,9 @@ package com.teamnest.userservice.model;
 
 import com.teamnest.userservice.exception.InviteExhaustedException;
 import com.teamnest.userservice.exception.InviteExpiredException;
+import com.teamnest.userservice.exception.InviteInvalidStateException;
+import com.teamnest.userservice.exception.InviteRevokedException;
+import com.teamnest.userservice.model.enums.InviteStatus;
 import com.teamnest.userservice.model.enums.InviteType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -25,19 +28,18 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.boot.model.naming.IllegalIdentifierException;
+
 
 @Entity
 @Table(
-        name = "invite",
+    name = "invite",
     schema = "account_management_service",
-        uniqueConstraints = {
-            @UniqueConstraint(name = "uk_invite_token_hash", columnNames = "token_hash")
-        },
-        indexes = {
-            @Index(name = "idx_invite_email", columnList = "email"),
-            @Index(name = "idx_invite_club", columnList = "club_id")
-        }
+    uniqueConstraints = @UniqueConstraint(name = "uk_invite_token_hash", columnNames = "token_hash"),
+    indexes = {
+        @Index(name = "idx_invite_email", columnList = "email"),
+        @Index(name = "idx_invite_club", columnList = "club_id"),
+        @Index(name = "idx_invite_expires_at", columnList = "expires_at")
+    }
 )
 @Getter
 @Builder(toBuilder = true)
@@ -61,10 +63,13 @@ public class Invite extends Auditable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 16)
-    private final InviteType type; // 'PLAYER' | 'STAFF'
+    private final InviteType type; // PLAYER | STAFF | ...
 
     @Column(name = "club_id", nullable = false)
     private final UUID clubId;
+
+    @Column(name = "email", length = 255) // ako je deo modela
+    private final String email;
 
     @Column(name = "expires_at", nullable = false)
     private final Instant expiresAt;
@@ -76,93 +81,92 @@ public class Invite extends Auditable {
     private Set<InviteRedemption> redemptions = new HashSet<>();
 
     @Builder.Default
-    @Column(name = "usage_limit ", nullable = false)
-    private final Integer usageLimit  = 1;
+    @Column(name = "usage_limit", nullable = false)
+    private final Integer usageLimit = 1;
 
     @Builder.Default
     @Column(name = "redemption_count", nullable = false)
-    private final Integer redemptionCount  = 0;
+    private Integer redemptionCount = 0;
 
-
-    /** True if expired by time boundary. */
+    // ---------- Status/guards ----------
     public boolean isExpired(Instant now) {
         final Instant t = (now != null) ? now : Instant.now();
         if (expiresAt == null) {
-            throw new IllegalIdentifierException("Expires at cannot be null");
+            throw new InviteInvalidStateException("expiresAt cannot be null");
         }
+
         return !t.isBefore(expiresAt);
     }
 
-    /** True if usage limit reached or exceeded. */
     public boolean isExhausted() {
         return redemptionCount >= usageLimit;
     }
 
-    /** True if there exists any active revocation. Adjust if your model has "active" flag. */
     public boolean isRevoked() {
         return revocations != null && !revocations.isEmpty();
     }
 
-    /** Current high-level status (single source of truth for clients). */
     public InviteStatus getStatus(Instant now) {
         if (isRevoked()) {
             return InviteStatus.REVOKED;
         }
-
         if (isExpired(now)) {
             return InviteStatus.EXPIRED;
         }
-
         if (isExhausted()) {
             return InviteStatus.EXHAUSTED;
         }
-
         return InviteStatus.ACTIVE;
     }
 
-    /** Can this invite be redeemed right now? */
-    public boolean canBeRedeemed(Instant now) {
-        return getStatus(now) == InviteStatus.ACTIVE;
-    }
-
-    /**
-     * Record a successful redemption (side-effecting).
-     * Must be called within a @Transactional service that persists this aggregate,
-     * relying on @Version for optimistic concurrency control.
-     */
-
-    public void onRedeemed(UUID userId, Instant when) {
-        // Defensive checks (service should have validated, but keep aggregate safe)
-        if (!canBeRedeemed(when)) {
-            throw new IllegalStateException("Invite cannot be redeemed in its current state: " + getStatus(when));
+    public void requireActive(Instant now) {
+        if (isRevoked()) {
+            throw new InviteRevokedException("Invite is revoked");
         }
-
-        // Increment counter atomically in aggregate invariants.
-        this.redemptionCount = this.redemptionCount + 1;
-
+        if (isExpired(now)) {
+            throw new InviteExpiredException("Invite is expired");
+        }
+        if (isExhausted()) {
+            throw new InviteExhaustedException("Invite usage limit reached");
+        }
     }
 
+    // ---------- Helpers ----------
+    public InviteRedemption addRedemption(UUID userId, UUID actorId, Instant when) {
+        requireActive(when);
+        var r = InviteRedemption.of(this, userId, actorId, when);
+        redemptions.add(r);
+        this.redemptionCount = this.redemptionCount + 1;
+        return r;
+    }
 
+    public InviteRevocation revoke(UUID actorId, String reason, Instant when) {
+        var rev = InviteRevocation.of(this, actorId, reason, when);
+        revocations.add(rev);
+        return rev;
+    }
 
-    // =================================================================
-    // Invariants & factories
-    // =================================================================
-
-    /** Enforce core invariants at creation time. Keep entity always-valid. */
+    // ---------- Invariants ----------
     @PrePersist
     @PreUpdate
     private void validateInvariants() {
-
         if (tokenHash == null || tokenHash.length() != 64) {
-            throw new IllegalStateException("tokenHash must be a 64-char hex string");
+            throw new InviteInvalidStateException("tokenHash must be a 64-char hex string");
         }
         if (clubId == null) {
-            throw new IllegalStateException("clubId must be provided");
+            throw new InviteInvalidStateException("clubId must be provided");
         }
         if (type == null) {
-            throw new IllegalStateException("type must be provided");
+            throw new InviteInvalidStateException("type must be provided");
+        }
+        if (usageLimit == null || usageLimit < 1) {
+            throw new InviteInvalidStateException("usageLimit must be >= 1");
+        }
+        if (redemptionCount == null || redemptionCount < 0) {
+            throw new InviteInvalidStateException("redemptionCount must be >= 0");
         }
     }
+
 
     // Convenience factory methods for readability at call sites
     public static Invite singleUse(final UUID clubId,

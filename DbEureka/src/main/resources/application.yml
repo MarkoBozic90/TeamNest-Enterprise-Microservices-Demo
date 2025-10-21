@@ -1,0 +1,37 @@
+# eureka/src/main/resources/application.yml
+server:
+  port: 8762   # samo lokalni default ako Config Server nije dostupan
+
+spring:
+
+  application:
+    name: eureka
+  # Uključi čitanje sa Config Server-a (ako nije dostupan, app će podići sa ovim lokalnim default-om)
+  config:
+    import: "optional:vault://,optional:configserver:"  # Vault pa Config Server
+  cloud:
+    vault:
+      scheme: http
+      host: localhost   # todo  running from IntelliJ on your host → use vault
+      port: 8200
+      token: ${VAULT_TOKEN:root}
+      kv:
+        enabled: true
+        backend: secret
+        application-name: eureka
+        profile-separator: '/'
+    config:
+      uri: ${CONFIG_SERVER_URI:http://localhost:8888}
+      username: ${CONFIG_USER:config}
+      password: ${CONFIG_PASSWORD:changeme}
+      label: ${CONFIG_GIT_BRANCH:main}
+      # Ako želiš da pukne odmah ako Config Server nije dostupan, uključi:
+      # fail-fast: true
+
+management:
+  endpoints:
+    web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
+
+# Opciono: log nivo dok biraš konekciju na Config Server
+logging.level.org.springframework.cloud.config: INFO

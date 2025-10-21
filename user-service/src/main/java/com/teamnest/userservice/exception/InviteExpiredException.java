@@ -1,11 +1,11 @@
 package com.teamnest.userservice.exception;
 
-import java.util.UUID;
+public class InviteExpiredException extends RuntimeException {
+    public InviteExpiredException() {
+        super("Invite expired");
+    }
 
-public class InviteExpiredException  extends RuntimeException {
-    @SuppressWarnings("checkstyle:WhitespaceAfter")
-    public InviteExpiredException(UUID uuid) {
-        super("Invite expired Exception withe id " + uuid);
-
+    public InviteExpiredException(String msg) {
+        super(msg);
     }
 }

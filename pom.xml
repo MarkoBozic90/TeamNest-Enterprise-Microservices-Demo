@@ -4,17 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.teamnest</groupId>
     <artifactId>teamnest-enterprise-demo</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>TeamNest Enterprise Demo (Parent)</name>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.5</version>
-        <relativePath/>
+        <groupId>com.teamnest</groupId>
+        <artifactId>teamnest-enterprise-demo</artifactId>sad
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>pom.xml</relativePath>
     </parent>
 
     <properties>
@@ -53,6 +52,7 @@
         <!-- shared multi-moduli -->
         <module>shared/bom</module>
         <module>shared/problem</module>
+        <module>eureka</module>
 
         <!-- apps -->
         <module>gateway</module>
